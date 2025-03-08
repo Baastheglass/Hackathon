@@ -28,15 +28,15 @@ class ImageDataset(Dataset):
         if not os.path.exists(img_path):
             print(f"File not found: {img_path}")
             # Return a placeholder black image instead of failing
-            img = np.zeros((224, 224, 3), dtype=np.uint8)
-            img = Image.fromarray(img)
+            # img = np.zeros((224, 224, 3), dtype=np.uint8)
+            # img = Image.fromarray(img)
         else:
             img = cv2.imread(img_path)
             if img is None:
                 print(f"Failed to load image: {img_path}")
                 # Return a placeholder black image
-                img = np.zeros((224, 224, 3), dtype=np.uint8)
-                img = Image.fromarray(img)
+                # img = np.zeros((224, 224, 3), dtype=np.uint8)
+                # img = Image.fromarray(img)
             else:
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
                 img = Image.fromarray(img)  # Convert to PIL for torchvision transforms
@@ -104,7 +104,7 @@ def visualize_batch(dataloader, class_names):
     
     # Create figure
     plt.figure(figsize=(12, 8))
-    
+    plt.title("Dataset Visualiser")
     # Display sample images
     for i in range(min(16, len(images))):
         plt.subplot(4, 4, i + 1)
@@ -120,31 +120,6 @@ def visualize_batch(dataloader, class_names):
     
     plt.tight_layout()
     plt.show()
-
-# Function to check class distribution
-def check_class_distribution(labels):
-    """
-    Check the distribution of classes in the dataset
-    
-    Args:
-        labels: List of labels
-    
-    Returns:
-        Dictionary with class counts
-    """
-    unique, counts = np.unique(labels, return_counts=True)
-    distribution = dict(zip(unique, counts))
-    
-    # Visualize distribution
-    plt.figure(figsize=(10, 5))
-    plt.bar(distribution.keys(), distribution.values())
-    plt.xlabel('Class')
-    plt.ylabel('Number of Samples')
-    plt.title('Class Distribution')
-    plt.xticks(list(distribution.keys()))
-    plt.show()
-    
-    return distribution
 
 if __name__ == "__main__":
     
@@ -219,17 +194,7 @@ if __name__ == "__main__":
     }.items():
         val_images.extend(image_list)
         val_labels.extend([class_idx] * len(image_list))
-    
-    # Check class distribution
-    print("Training dataset class distribution:")
-    train_distribution = check_class_distribution(train_labels)
-    
-    print("Testing dataset class distribution:")
-    test_distribution = check_class_distribution(test_labels)
-    
-    print("Validation dataset class distribution:")
-    val_distribution = check_class_distribution(val_labels)
-    
+
     # Create DataLoaders for train, test, and validation sets
     train_loader = preprocess_images(train_images, train_labels, batch_size=32, augment=True)
     test_loader = preprocess_images(test_images, test_labels, batch_size=32, augment=False)
