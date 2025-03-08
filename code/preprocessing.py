@@ -120,40 +120,15 @@ def visualize_batch(dataloader, class_names):
     
     plt.tight_layout()
     plt.show()
-
-if __name__ == "__main__":
     
+def create_train_loader():
     base_dir = "./content/Diabetic_Balanced_Data"
-    
-    # Define class names for diabetic retinopathy
-    class_names = {
-        0: "No DR",
-        1: "Mild DR",
-        2: "Moderate DR",
-        3: "Severe DR",
-        4: "Proliferative DR"
-    }
-
     # Train dataset
     zero_images_train = [os.path.join(base_dir, "train/0", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "train/0"))]
     one_images_train = [os.path.join(base_dir, "train/1", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "train/1"))]
     two_images_train = [os.path.join(base_dir, "train/2", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "train/2"))]
     three_images_train = [os.path.join(base_dir, "train/3", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "train/3"))]
     four_images_train = [os.path.join(base_dir, "train/4", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "train/4"))]
-
-    # Test dataset
-    zero_images_test = [os.path.join(base_dir, "test/0", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/0"))]
-    one_images_test = [os.path.join(base_dir, "test/1", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/1"))]
-    two_images_test = [os.path.join(base_dir, "test/2", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/2"))]
-    three_images_test = [os.path.join(base_dir, "test/3", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/3"))]
-    four_images_test = [os.path.join(base_dir, "test/4", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/4"))]
-
-    # Validation dataset
-    zero_images_val = [os.path.join(base_dir, "val/0", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/0"))]
-    one_images_val = [os.path.join(base_dir, "val/1", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/1"))]
-    two_images_val = [os.path.join(base_dir, "val/2", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/2"))]
-    three_images_val = [os.path.join(base_dir, "val/3", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/3"))]
-    four_images_val = [os.path.join(base_dir, "val/4", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/4"))]
 
     # Create lists of images and corresponding labels
     train_images = []
@@ -169,6 +144,18 @@ if __name__ == "__main__":
         train_images.extend(image_list)
         train_labels.extend([class_idx] * len(image_list))
     
+    
+    return preprocess_images(train_images, train_labels, batch_size=32, augment=True)
+
+def create_test_loader():    
+    base_dir = "./content/Diabetic_Balanced_Data"
+    # Test dataset
+    zero_images_test = [os.path.join(base_dir, "test/0", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/0"))]
+    one_images_test = [os.path.join(base_dir, "test/1", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/1"))]
+    two_images_test = [os.path.join(base_dir, "test/2", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/2"))]
+    three_images_test = [os.path.join(base_dir, "test/3", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/3"))]
+    four_images_test = [os.path.join(base_dir, "test/4", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "test/4"))]
+
     test_images = []
     test_labels = []
     
@@ -182,6 +169,17 @@ if __name__ == "__main__":
         test_images.extend(image_list)
         test_labels.extend([class_idx] * len(image_list))
     
+    return preprocess_images(test_images, test_labels, batch_size=32, augment=False)
+
+def create_val_loader():
+    base_dir = "./content/Diabetic_Balanced_Data"    
+    # Validation dataset
+    zero_images_val = [os.path.join(base_dir, "val/0", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/0"))]
+    one_images_val = [os.path.join(base_dir, "val/1", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/1"))]
+    two_images_val = [os.path.join(base_dir, "val/2", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/2"))]
+    three_images_val = [os.path.join(base_dir, "val/3", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/3"))]
+    four_images_val = [os.path.join(base_dir, "val/4", f).replace("\\", "/") for f in os.listdir(os.path.join(base_dir, "val/4"))]
+
     val_images = []
     val_labels = []
     
@@ -195,10 +193,23 @@ if __name__ == "__main__":
         val_images.extend(image_list)
         val_labels.extend([class_idx] * len(image_list))
 
+    return preprocess_images(val_images, val_labels, batch_size=32, augment=False)
+
+if __name__ == "__main__":
+
+    # Define class names for diabetic retinopathy
+    class_names = {
+        0: "No DR",
+        1: "Mild DR",
+        2: "Moderate DR",
+        3: "Severe DR",
+        4: "Proliferative DR"
+    }
+    
     # Create DataLoaders for train, test, and validation sets
-    train_loader = preprocess_images(train_images, train_labels, batch_size=32, augment=True)
-    test_loader = preprocess_images(test_images, test_labels, batch_size=32, augment=False)
-    val_loader = preprocess_images(val_images, val_labels, batch_size=32, augment=False)
+    train_loader = create_train_loader()
+    test_loader = create_test_loader()
+    val_loader = create_val_loader()
     
     print(f"Created train_loader with {len(train_loader.dataset)} images")
     print(f"Created test_loader with {len(test_loader.dataset)} images")
