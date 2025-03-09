@@ -15,72 +15,241 @@ class DiabeticRetinopathyCNN(nn.Module):
     def __init__(self, num_classes=5):
         super(DiabeticRetinopathyCNN, self).__init__()
         
-        # CNN architecture
-        self.features = nn.Sequential(
-            # First convolutional block
-            nn.Conv2d(3, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(32, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            # Second convolutional block
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            # Third convolutional block
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            # Fourth convolutional block
-            nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            
-            # Dropout for regularization
-            nn.Dropout2d(0.5),
-        )
+        # Improved CNN architecture with residual connections and deeper network
+        # First convolutional block
+        self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.bn1_1 = nn.BatchNorm2d(64)
+        self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
+        self.bn1_2 = nn.BatchNorm2d(64)
+        self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         
-        # Fully connected layers
-        self.classifier = nn.Sequential(
-            nn.Linear(256 * 14 * 14, 512),
-            nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-            nn.Linear(512, num_classes)
-        )
+        # Second convolutional block with residual connection
+        self.conv2_1 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.bn2_1 = nn.BatchNorm2d(128)
+        self.conv2_2 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
+        self.bn2_2 = nn.BatchNorm2d(128)
+        self.skip2 = nn.Conv2d(64, 128, kernel_size=1)  # Skip connection
+        self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # Third convolutional block with residual connection
+        self.conv3_1 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.bn3_1 = nn.BatchNorm2d(256)
+        self.conv3_2 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.bn3_2 = nn.BatchNorm2d(256)
+        self.conv3_3 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
+        self.bn3_3 = nn.BatchNorm2d(256)
+        self.skip3 = nn.Conv2d(128, 256, kernel_size=1)  # Skip connection
+        self.pool3 = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # Fourth convolutional block with residual connection
+        self.conv4_1 = nn.Conv2d(256, 512, kernel_size=3, padding=1)
+        self.bn4_1 = nn.BatchNorm2d(512)
+        self.conv4_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.bn4_2 = nn.BatchNorm2d(512)
+        self.conv4_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.bn4_3 = nn.BatchNorm2d(512)
+        self.skip4 = nn.Conv2d(256, 512, kernel_size=1)  # Skip connection
+        self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # Fifth convolutional block
+        self.conv5_1 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.bn5_1 = nn.BatchNorm2d(512)
+        self.conv5_2 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.bn5_2 = nn.BatchNorm2d(512)
+        self.conv5_3 = nn.Conv2d(512, 512, kernel_size=3, padding=1)
+        self.bn5_3 = nn.BatchNorm2d(512)
+        self.skip5 = nn.Conv2d(512, 512, kernel_size=1)  # Skip connection
+        self.pool5 = nn.MaxPool2d(kernel_size=2, stride=2)
+        
+        # Global average pooling
+        self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
+        
+        # Dropout for regularization
+        self.dropout = nn.Dropout(0.5)
+        
+        # Fully connected layers with skip connections
+        self.fc1 = nn.Linear(512, 1024)
+        self.fc_bn1 = nn.BatchNorm1d(1024)
+        self.fc2 = nn.Linear(1024, 512)
+        self.fc_bn2 = nn.BatchNorm1d(512)
+        self.fc3 = nn.Linear(512, num_classes)
+        
+        # Initialize weights
+        self._initialize_weights()
+    
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
     
     def forward(self, x):
-        x = self.features(x)
+        # Block 1
+        x = self.conv1_1(x)
+        x = self.bn1_1(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv1_2(x)
+        x = self.bn1_2(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.pool1(x)
+        
+        # Block 2 with residual connection
+        identity = self.skip2(x)
+        x = self.conv2_1(x)
+        x = self.bn2_1(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv2_2(x)
+        x = self.bn2_2(x)
+        x = x + identity  # Add skip connection
+        x = nn.functional.relu(x, inplace=True)
+        x = self.pool2(x)
+        
+        # Block 3 with residual connection
+        identity = self.skip3(x)
+        x = self.conv3_1(x)
+        x = self.bn3_1(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv3_2(x)
+        x = self.bn3_2(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv3_3(x)
+        x = self.bn3_3(x)
+        x = x + identity  # Add skip connection
+        x = nn.functional.relu(x, inplace=True)
+        x = self.pool3(x)
+        
+        # Block 4 with residual connection
+        identity = self.skip4(x)
+        x = self.conv4_1(x)
+        x = self.bn4_1(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv4_2(x)
+        x = self.bn4_2(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv4_3(x)
+        x = self.bn4_3(x)
+        x = x + identity  # Add skip connection
+        x = nn.functional.relu(x, inplace=True)
+        x = self.pool4(x)
+        
+        # Block 5 with residual connection
+        identity = self.skip5(x)
+        x = self.conv5_1(x)
+        x = self.bn5_1(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv5_2(x)
+        x = self.bn5_2(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.conv5_3(x)
+        x = self.bn5_3(x)
+        x = x + identity  # Add skip connection
+        x = nn.functional.relu(x, inplace=True)
+        x = self.pool5(x)
+        
+        # Global average pooling (replaces large fully connected layers)
+        x = self.global_avg_pool(x)
         x = torch.flatten(x, 1)
-        x = self.classifier(x)
+        
+        # Fully connected layers with skip and BN
+        x = self.fc1(x)
+        x = self.fc_bn1(x)
+        x = nn.functional.relu(x, inplace=True)
+        x = self.dropout(x)
+        
+        identity = x  # Save for skip connection
+        x = self.fc2(x)
+        x = self.fc_bn2(x)
+        # No direct skip connection since dimensions differ, but we keep the concept
+        x = nn.functional.relu(x, inplace=True)
+        x = self.dropout(x)
+        
+        x = self.fc3(x)
         return x
     
     def get_features(self, x):
         """Extract features from input for use with AdaBoost"""
         with torch.no_grad():
-            x = self.features(x)
+            # Block 1
+            x = self.conv1_1(x)
+            x = self.bn1_1(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv1_2(x)
+            x = self.bn1_2(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.pool1(x)
+            
+            # Block 2
+            identity = self.skip2(x)
+            x = self.conv2_1(x)
+            x = self.bn2_1(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv2_2(x)
+            x = self.bn2_2(x)
+            x = x + identity
+            x = nn.functional.relu(x, inplace=True)
+            x = self.pool2(x)
+            
+            # Block 3
+            identity = self.skip3(x)
+            x = self.conv3_1(x)
+            x = self.bn3_1(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv3_2(x)
+            x = self.bn3_2(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv3_3(x)
+            x = self.bn3_3(x)
+            x = x + identity
+            x = nn.functional.relu(x, inplace=True)
+            x = self.pool3(x)
+            
+            # Block 4
+            identity = self.skip4(x)
+            x = self.conv4_1(x)
+            x = self.bn4_1(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv4_2(x)
+            x = self.bn4_2(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv4_3(x)
+            x = self.bn4_3(x)
+            x = x + identity
+            x = nn.functional.relu(x, inplace=True)
+            x = self.pool4(x)
+            
+            # Block 5
+            identity = self.skip5(x)
+            x = self.conv5_1(x)
+            x = self.bn5_1(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv5_2(x)
+            x = self.bn5_2(x)
+            x = nn.functional.relu(x, inplace=True)
+            x = self.conv5_3(x)
+            x = self.bn5_3(x)
+            x = x + identity
+            x = nn.functional.relu(x, inplace=True)
+            x = self.pool5(x)
+            
+            # Global average pooling
+            x = self.global_avg_pool(x)
             x = torch.flatten(x, 1)
-            x = self.classifier[0](x)  # Get features after the first FC layer
-            x = self.classifier[1](x)  # Apply ReLU
+            
+            # Get features after first FC layer
+            x = self.fc1(x)
+            x = self.fc_bn1(x)
+            x = nn.functional.relu(x, inplace=True)
+        
         return x
 
-# PyTorch model wrapper for AdaBoost
+# PyTorch model wrapper for AdaBoost (unchanged)
 class PyTorchClassifierWrapper(BaseEstimator):
     def __init__(self, model, device='cuda'):
         self.model = model
@@ -95,20 +264,25 @@ class PyTorchClassifierWrapper(BaseEstimator):
     def predict(self, X):
         with torch.no_grad():
             X_tensor = torch.FloatTensor(X).to(self.device)
-            outputs = self.model.classifier[3](X_tensor)  # Use only the final layer for prediction
+            # For the improved model, we need to use fc2 and fc3
+            intermediate = nn.functional.relu(self.model.fc_bn2(self.model.fc2(X_tensor)))
+            outputs = self.model.fc3(intermediate)
             _, preds = torch.max(outputs, 1)
             return preds.cpu().numpy()
     
     def predict_proba(self, X):
         with torch.no_grad():
             X_tensor = torch.FloatTensor(X).to(self.device)
-            outputs = self.model.classifier[3](X_tensor)  # Use only the final layer
+            # For the improved model, we need to use fc2 and fc3
+            intermediate = nn.functional.relu(self.model.fc_bn2(self.model.fc2(X_tensor)))
+            outputs = self.model.fc3(intermediate)
             probs = torch.nn.functional.softmax(outputs, dim=1)
             return probs.cpu().numpy()
 
+# Improved training function with cosine annealing and mixed precision
 def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=25, device='cuda'):
     """
-    Train the model and return the best model weights
+    Train the model with improved training routine
     
     Args:
         model: PyTorch model
@@ -128,6 +302,9 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
     device = torch.device(device if torch.cuda.is_available() and device=='cuda' else "cpu")
     model = model.to(device)
     
+    # Use mixed precision training if on CUDA
+    scaler = torch.cuda.amp.GradScaler() if device.type == 'cuda' else None
+    
     best_model_wts = copy.deepcopy(model.state_dict())
     best_acc = 0.0
     
@@ -138,6 +315,11 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
         'val_loss': [],
         'val_acc': []
     }
+    
+    # Early stopping
+    patience = 5
+    early_stop_counter = 0
+    prev_val_loss = float('inf')
     
     for epoch in range(num_epochs):
         print(f'Epoch {epoch+1}/{num_epochs}')
@@ -163,14 +345,29 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
                 
                 # Forward
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    _, preds = torch.max(outputs, 1)
-                    loss = criterion(outputs, labels)
-                    
-                    # Backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss.backward()
-                        optimizer.step()
+                    if phase == 'train' and scaler is not None:
+                        # Use mixed precision for forward pass
+                        with torch.cuda.amp.autocast():
+                            outputs = model(inputs)
+                            loss = criterion(outputs, labels)
+                        
+                        # Backward + optimize with gradient scaling
+                        scaler.scale(loss).backward()
+                        scaler.step(optimizer)
+                        scaler.update()
+                    else:
+                        outputs = model(inputs)
+                        loss = criterion(outputs, labels)
+                        
+                        # Backward + optimize only if in training phase
+                        if phase == 'train':
+                            loss.backward()
+                            # Add gradient clipping
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                            optimizer.step()
+                
+                # Get predictions
+                _, preds = torch.max(outputs, 1)
                 
                 # Statistics
                 running_loss += loss.item() * inputs.size(0)
@@ -180,7 +377,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
                 scheduler.step()
             
             epoch_loss = running_loss / len(dataloaders[phase].dataset)
-            epoch_acc = running_corrects.double() / len(dataloaders[phase].dataset)
+            epoch_acc = running_corrects.float() / len(dataloaders[phase].dataset)
             
             # Record history
             if phase == 'train':
@@ -196,8 +393,22 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
             if phase == 'val' and epoch_acc > best_acc:
                 best_acc = epoch_acc
                 best_model_wts = copy.deepcopy(model.state_dict())
+                early_stop_counter = 0  # Reset counter on improvement
+            
+            # Early stopping check
+            if phase == 'val':
+                if epoch_loss >= prev_val_loss:
+                    early_stop_counter += 1
+                else:
+                    early_stop_counter = 0
+                prev_val_loss = epoch_loss
         
         print()
+        
+        # Check for early stopping
+        if early_stop_counter >= patience:
+            print(f'Early stopping triggered after {epoch+1} epochs')
+            break
     
     time_elapsed = time.time() - since
     print(f'Training complete in {time_elapsed // 60:.0f}m {time_elapsed % 60:.0f}s')
@@ -210,6 +421,7 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
     model.load_state_dict(best_model_wts)
     return model
 
+# The rest of the functions remain largely unchanged
 def extract_features(model, dataloader, device='cuda'):
     """
     Extract features from the convolutional base for use with AdaBoost
@@ -239,7 +451,7 @@ def extract_features(model, dataloader, device='cuda'):
     
     return np.vstack(features), np.concatenate(labels)
 
-def train_adaboost(cnn_model, dataloaders, device='cuda', n_estimators=50):
+def train_adaboost(cnn_model, dataloaders, device='cuda', n_estimators=100):
     """
     Train an AdaBoost classifier on features extracted from the CNN
     
@@ -260,11 +472,12 @@ def train_adaboost(cnn_model, dataloaders, device='cuda', n_estimators=50):
     # Create a wrapper for the CNN final layer as the base estimator
     base_estimator = PyTorchClassifierWrapper(cnn_model, device)
     
-    # Create and train the AdaBoost classifier
+    # Create and train the AdaBoost classifier with improved parameters
     adaboost = AdaBoostClassifier(
         base_estimator=base_estimator,
         n_estimators=n_estimators,
         algorithm='SAMME.R',  # Use real-valued prediction confidence
+        learning_rate=0.1,    # Adjusted learning rate
         random_state=42
     )
     
@@ -488,7 +701,7 @@ def compare_models(cnn_model, adaboost_model, test_loader, device='cuda'):
 
 # Example usage
 if __name__ == "__main__":
-    # Initialize the model
+    # Initialize the improved model
     model = DiabeticRetinopathyCNN(num_classes=5)
     
     # Use your dataloaders from the provided code
@@ -496,71 +709,67 @@ if __name__ == "__main__":
         'train': create_train_loader(),
         'val': create_val_loader()
     }
-    
-    # Define loss function, optimizer and scheduler
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
-    
-    # Train the model
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print(f"Using device: {device}")
-    
-    # Train the CNN first
-    print("Training CNN model...")
-    trained_model = train_model(
-        model, 
-        dataloaders, 
-        criterion, 
-        optimizer, 
-        exp_lr_scheduler,
-        num_epochs=15,
-        device=device
-    )
-    
-    # Save the CNN model
-    torch.save(trained_model.state_dict(), './model/diabetic_retinopathy_cnn_model.pth')
-    print("CNN model saved to diabetic_retinopathy_cnn_model.pth")
-    
-    # Train AdaBoost on top of CNN
-    print("\nTraining AdaBoost model on CNN features...")
-    adaboost_model = train_adaboost(
-        trained_model,
-        dataloaders,
-        device=device,
-        n_estimators=50
-    )
-    
-    # Save the AdaBoost model
-    import pickle
-    with open('./model/diabetic_retinopathy_adaboost_model.pkl', 'wb') as f:
-        pickle.dump(adaboost_model, f)
-    print("AdaBoost model saved to diabetic_retinopathy_adaboost_model.pkl")
-    
-    # Load test data
     test_loader = create_test_loader()
     
-    # Compare CNN and AdaBoost models
-    compare_models(trained_model, adaboost_model, test_loader, device)
+    # Define loss function with label smoothing
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     
-    # Example of how to load the models and make a prediction
-    """
-    # Load CNN model
-    model = DiabeticRetinopathyCNN(num_classes=5)
-    model.load_state_dict(torch.load('./model/diabetic_retinopathy_cnn_model.pth'))
+    # Improved optimizer with weight decay
+    optimizer = optim.AdamW(model.parameters(), lr=0.001, weight_decay=1e-4)
     
-    # Load AdaBoost model
-    with open('./model/diabetic_retinopathy_adaboost_model.pkl', 'rb') as f:
-        adaboost_model = pickle.load(f)
+    # Cosine annealing learning rate scheduler
+    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=1e-6)
     
-    # Transform for input images
+    # Train the model
+    trained_model = train_model(
+        model=model,
+        dataloaders=dataloaders,
+        criterion=criterion,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        num_epochs=25,
+        device='cuda'
+    )
+    
+    # Train AdaBoost on the trained CNN features
+    adaboost_model = train_adaboost(
+        cnn_model=trained_model,
+        dataloaders=dataloaders,
+        device='cuda',
+        n_estimators=100
+    )
+    
+    # Evaluate the models on the test set
+    print("Evaluating CNN model:")
+    cnn_accuracy = evaluate_model(trained_model, test_loader, device='cuda')
+    
+    print("\nEvaluating CNN + AdaBoost model:")
+    adaboost_accuracy = evaluate_model(trained_model, test_loader, device='cuda', adaboost=adaboost_model)
+    
+    # Compare the models
+    compare_models(trained_model, adaboost_model, test_loader, device='cuda')
+    
+    # Example of making a prediction on a single image
+    from torchvision import transforms
+    
+    # Define the transform for the input image
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     
-    # Make prediction with AdaBoost
+    # Predict on a single image
+    image_path = "path_to_your_image.jpg"
+    predicted_class, probabilities = predict_single_image(
+        model=trained_model,
+        image_path=image_path,
+        transform=transform,
+        device='cuda',
+        adaboost=adaboost_model
+    )
+    
+    # Print the prediction
     class_names = {
         0: "No DR",
         1: "Mild DR",
@@ -569,13 +778,7 @@ if __name__ == "__main__":
         4: "Proliferative DR"
     }
     
-    predicted_class, probabilities = predict_single_image(
-        model, 
-        'path/to/image.jpg', 
-        transform, 
-        adaboost=adaboost_model
-    )
-    
-    print(f"Predicted class: {class_names[predicted_class]}")
-    print(f"Probabilities: {probabilities}")
-    """
+    print(f"Predicted Class: {class_names[predicted_class]}")
+    print("Class Probabilities:")
+    for i, prob in enumerate(probabilities):
+        print(f"{class_names[i]}: {prob:.4f}")
