@@ -12,13 +12,13 @@ st.markdown(
     """
     <style>
     body {
-        background-color: #FFF7F3;
+        background-color: #FFF7F4; /* Lightest shade */
     }
     .stProgress > div > div > div > div {
-        background-color: #8174A0 !important;
+        background-color: #EAB8B8 !important; /* Mid-tone shade */
     }
     div.stButton > button:first-child {
-        background-color: #4CAF50; /* Green */
+        background-color: #C599B6; /* Main theme color */
         color: white;
         border-radius: 10px;
         padding: 10px;
@@ -45,12 +45,12 @@ if uploaded_file is not None:
         severity_percentage = np.random.randint(0, 101)  # Simulating a model output
     
     # Display result
-    st.markdown(f"<h2 style='color: #C599B6;'>Severity Level: {severity_percentage}%</h2>", unsafe_allow_html=True)
+    st.markdown(f"<h2 style='color: #D8A0A8;'>Severity Level: {severity_percentage}%</h2>", unsafe_allow_html=True)
     st.progress(severity_percentage / 100)  # Display as progress bar
     
     # Show severity as a pie chart
     fig, ax = plt.subplots()
-    ax.pie([severity_percentage, 100 - severity_percentage], labels=["DR Severity", "Healthy"], colors=["#D84040", "#41644A"], autopct='%1.1f%%')
+    ax.pie([severity_percentage, 100 - severity_percentage], labels=["DR Severity", "Healthy"], colors=["#EAB8B8", "#FFD1C1"], autopct='%1.1f%%')
     st.pyplot(fig)
     
     # Add a reprocess button
