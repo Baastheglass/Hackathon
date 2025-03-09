@@ -10,6 +10,7 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
 import torch.nn.functional as F
+import random  # Added for random sampling
 
 class ImageDataset(Dataset):
     def __init__(self, image_paths, labels, transform=None):
@@ -41,10 +42,10 @@ class ImageDataset(Dataset):
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # Convert BGR to RGB
                 img = Image.fromarray(img)  # Convert to PIL for torchvision transforms
         
-        if self.transform:
-            img = self.transform(img)
-        
-        return img, label
+            if self.transform:
+                img = self.transform(img)
+            
+            return img, label
 
 def preprocess_images(image_paths, labels, batch_size=32, augment=True):
     """
@@ -120,6 +121,24 @@ def visualize_batch(dataloader, class_names):
     
     plt.tight_layout()
     plt.show()
+
+# Helper function to sample 20% of the data while preserving class distribution
+def sample_20_percent(image_paths, labels):
+    # Get combined list of paths and labels
+    combined = list(zip(image_paths, labels))
+    
+    # Calculate 20% of the dataset size
+    sample_size = int(len(combined) * 0.2)
+    
+    # Randomly sample 20% of the data
+    sampled = random.sample(combined, sample_size)
+    
+    # Unzip the sampled data
+    sampled_paths, sampled_labels = zip(*sampled) if sampled else ([], [])
+    
+    print(f"Sampled {len(sampled_paths)} images (20% of {len(image_paths)})")
+    
+    return list(sampled_paths), list(sampled_labels)
     
 def create_train_loader():
     base_dir = "./content/Diabetic_Balanced_Data"
@@ -144,6 +163,8 @@ def create_train_loader():
         train_images.extend(image_list)
         train_labels.extend([class_idx] * len(image_list))
     
+    # Sample 20% of the training data
+    train_images, train_labels = sample_20_percent(train_images, train_labels)
     
     return preprocess_images(train_images, train_labels, batch_size=32, augment=True)
 
@@ -169,6 +190,9 @@ def create_test_loader():
         test_images.extend(image_list)
         test_labels.extend([class_idx] * len(image_list))
     
+    # Sample 20% of the test data
+    test_images, test_labels = sample_20_percent(test_images, test_labels)
+    
     return preprocess_images(test_images, test_labels, batch_size=32, augment=False)
 
 def create_val_loader():
@@ -193,9 +217,14 @@ def create_val_loader():
         val_images.extend(image_list)
         val_labels.extend([class_idx] * len(image_list))
 
+    # Sample 20% of the validation data
+    val_images, val_labels = sample_20_percent(val_images, val_labels)
+    
     return preprocess_images(val_images, val_labels, batch_size=32, augment=False)
 
 if __name__ == "__main__":
+    # Set random seed for reproducibility
+    random.seed(42)
 
     # Define class names for diabetic retinopathy
     class_names = {
@@ -211,9 +240,9 @@ if __name__ == "__main__":
     test_loader = create_test_loader()
     val_loader = create_val_loader()
     
-    print(f"Created train_loader with {len(train_loader.dataset)} images")
-    print(f"Created test_loader with {len(test_loader.dataset)} images")
-    print(f"Created val_loader with {len(val_loader.dataset)} images")
+    print(f"Created train_loader with {len(train_loader.dataset)} images (20% of original dataset)")
+    print(f"Created test_loader with {len(test_loader.dataset)} images (20% of original dataset)")
+    print(f"Created val_loader with {len(val_loader.dataset)} images (20% of original dataset)")
     
     # Visualize a batch from the training set
     print("Visualizing a batch from the training set:")

@@ -7,7 +7,10 @@ import time
 import copy
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.base import BaseEstimator
 from preprocessing import create_val_loader, create_test_loader, create_train_loader
+
 class DiabeticRetinopathyCNN(nn.Module):
     def __init__(self, num_classes=5):
         super(DiabeticRetinopathyCNN, self).__init__()
@@ -67,6 +70,41 @@ class DiabeticRetinopathyCNN(nn.Module):
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
+    
+    def get_features(self, x):
+        """Extract features from input for use with AdaBoost"""
+        with torch.no_grad():
+            x = self.features(x)
+            x = torch.flatten(x, 1)
+            x = self.classifier[0](x)  # Get features after the first FC layer
+            x = self.classifier[1](x)  # Apply ReLU
+        return x
+
+# PyTorch model wrapper for AdaBoost
+class PyTorchClassifierWrapper(BaseEstimator):
+    def __init__(self, model, device='cuda'):
+        self.model = model
+        self.device = torch.device(device if torch.cuda.is_available() and device=='cuda' else "cpu")
+        self.model.to(self.device)
+        self.classes_ = np.array([0, 1, 2, 3, 4])  # Assuming 5 classes
+    
+    def fit(self, X, y):
+        # AdaBoost will use this to initialize and doesn't need to fit the CNN
+        return self
+    
+    def predict(self, X):
+        with torch.no_grad():
+            X_tensor = torch.FloatTensor(X).to(self.device)
+            outputs = self.model.classifier[3](X_tensor)  # Use only the final layer for prediction
+            _, preds = torch.max(outputs, 1)
+            return preds.cpu().numpy()
+    
+    def predict_proba(self, X):
+        with torch.no_grad():
+            X_tensor = torch.FloatTensor(X).to(self.device)
+            outputs = self.model.classifier[3](X_tensor)  # Use only the final layer
+            probs = torch.nn.functional.softmax(outputs, dim=1)
+            return probs.cpu().numpy()
 
 def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=25, device='cuda'):
     """
@@ -172,7 +210,74 @@ def train_model(model, dataloaders, criterion, optimizer, scheduler, num_epochs=
     model.load_state_dict(best_model_wts)
     return model
 
-def evaluate_model(model, test_loader, device='cuda'):
+def extract_features(model, dataloader, device='cuda'):
+    """
+    Extract features from the convolutional base for use with AdaBoost
+    
+    Args:
+        model: Pre-trained CNN model
+        dataloader: DataLoader for dataset
+        device: Device to use
+        
+    Returns:
+        features: Extracted features
+        labels: Corresponding labels
+    """
+    device = torch.device(device if torch.cuda.is_available() and device=='cuda' else "cpu")
+    model = model.to(device)
+    model.eval()
+    
+    features = []
+    labels = []
+    
+    with torch.no_grad():
+        for inputs, targets in dataloader:
+            inputs = inputs.to(device)
+            features_batch = model.get_features(inputs)
+            features.append(features_batch.cpu().numpy())
+            labels.append(targets.numpy())
+    
+    return np.vstack(features), np.concatenate(labels)
+
+def train_adaboost(cnn_model, dataloaders, device='cuda', n_estimators=50):
+    """
+    Train an AdaBoost classifier on features extracted from the CNN
+    
+    Args:
+        cnn_model: Pre-trained CNN model
+        dataloaders: Dictionary with 'train' and 'val' dataloaders
+        device: Device to use
+        n_estimators: Number of weak classifiers in AdaBoost
+        
+    Returns:
+        adaboost_model: Trained AdaBoost model
+    """
+    print("Extracting features from CNN for AdaBoost training...")
+    X_train, y_train = extract_features(cnn_model, dataloaders['train'], device)
+    
+    print(f"Training AdaBoost with {n_estimators} estimators...")
+    
+    # Create a wrapper for the CNN final layer as the base estimator
+    base_estimator = PyTorchClassifierWrapper(cnn_model, device)
+    
+    # Create and train the AdaBoost classifier
+    adaboost = AdaBoostClassifier(
+        base_estimator=base_estimator,
+        n_estimators=n_estimators,
+        algorithm='SAMME.R',  # Use real-valued prediction confidence
+        random_state=42
+    )
+    
+    adaboost.fit(X_train, y_train)
+    
+    # Evaluate on validation set
+    X_val, y_val = extract_features(cnn_model, dataloaders['val'], device)
+    val_accuracy = adaboost.score(X_val, y_val)
+    print(f"AdaBoost validation accuracy: {val_accuracy:.4f}")
+    
+    return adaboost
+
+def evaluate_model(model, test_loader, device='cuda', adaboost=None):
     """
     Evaluate model on test set
     
@@ -180,6 +285,7 @@ def evaluate_model(model, test_loader, device='cuda'):
         model: Trained PyTorch model
         test_loader: DataLoader for test set
         device: Device to evaluate on ('cuda' or 'cpu')
+        adaboost: Trained AdaBoost model (optional)
         
     Returns:
         accuracy: Accuracy on test set
@@ -191,16 +297,24 @@ def evaluate_model(model, test_loader, device='cuda'):
     y_true = []
     y_pred = []
     
-    with torch.no_grad():
-        for inputs, labels in test_loader:
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            
-            outputs = model(inputs)
-            _, preds = torch.max(outputs, 1)
-            
-            y_true.extend(labels.cpu().numpy())
-            y_pred.extend(preds.cpu().numpy())
+    if adaboost:
+        # AdaBoost evaluation
+        print("Evaluating AdaBoost model...")
+        X_test, y_true = extract_features(model, test_loader, device)
+        y_pred = adaboost.predict(X_test)
+    else:
+        # Standard CNN evaluation
+        print("Evaluating CNN model...")
+        with torch.no_grad():
+            for inputs, labels in test_loader:
+                inputs = inputs.to(device)
+                labels = labels.to(device)
+                
+                outputs = model(inputs)
+                _, preds = torch.max(outputs, 1)
+                
+                y_true.extend(labels.cpu().numpy())
+                y_pred.extend(preds.cpu().numpy())
     
     # Calculate metrics
     accuracy = accuracy_score(y_true, y_pred)
@@ -279,7 +393,7 @@ def plot_confusion_matrix(y_true, y_pred, class_names):
     fig.tight_layout()
     plt.show()
 
-def predict_single_image(model, image_path, transform, device='cuda'):
+def predict_single_image(model, image_path, transform, device='cuda', adaboost=None):
     """
     Make a prediction on a single image
     
@@ -288,6 +402,7 @@ def predict_single_image(model, image_path, transform, device='cuda'):
         image_path: Path to image file
         transform: PyTorch transform to apply to image
         device: Device to evaluate on ('cuda' or 'cpu')
+        adaboost: Trained AdaBoost model (optional)
         
     Returns:
         predicted_class: Predicted class index
@@ -311,12 +426,65 @@ def predict_single_image(model, image_path, transform, device='cuda'):
     img = transform(img).unsqueeze(0).to(device)
     
     # Make prediction
-    with torch.no_grad():
-        outputs = model(img)
-        probabilities = torch.nn.functional.softmax(outputs, dim=1)[0]
-        _, predicted_class = torch.max(outputs, 1)
+    if adaboost:
+        # Extract features and use AdaBoost for prediction
+        with torch.no_grad():
+            features = model.get_features(img)
+            features_np = features.cpu().numpy()
+            probabilities = adaboost.predict_proba(features_np)[0]
+            predicted_class = np.argmax(probabilities)
+    else:
+        # Use standard CNN prediction
+        with torch.no_grad():
+            outputs = model(img)
+            probabilities = torch.nn.functional.softmax(outputs, dim=1)[0]
+            _, predicted_class = torch.max(outputs, 1)
+            probabilities = probabilities.cpu().numpy()
+            predicted_class = predicted_class.item()
     
-    return predicted_class.item(), probabilities.cpu().numpy()
+    return predicted_class, probabilities
+
+def compare_models(cnn_model, adaboost_model, test_loader, device='cuda'):
+    """
+    Compare CNN and AdaBoost models
+    
+    Args:
+        cnn_model: Trained CNN model
+        adaboost_model: Trained AdaBoost model
+        test_loader: DataLoader for test set
+        device: Device to evaluate on
+    """
+    # Evaluate CNN model
+    print("Evaluating CNN model:")
+    cnn_accuracy = evaluate_model(cnn_model, test_loader, device)
+    
+    # Evaluate AdaBoost model
+    print("\nEvaluating AdaBoost model:")
+    adaboost_accuracy = evaluate_model(cnn_model, test_loader, device, adaboost_model)
+    
+    # Compare results
+    print("\nModel Comparison:")
+    print(f"CNN Accuracy: {cnn_accuracy:.4f}")
+    print(f"AdaBoost Accuracy: {adaboost_accuracy:.4f}")
+    print(f"Improvement: {(adaboost_accuracy - cnn_accuracy) * 100:.2f}%")
+    
+    # Plot comparison
+    models = ['CNN', 'CNN + AdaBoost']
+    accuracies = [cnn_accuracy, adaboost_accuracy]
+    
+    plt.figure(figsize=(8, 6))
+    plt.bar(models, accuracies, color=['blue', 'green'])
+    plt.ylim(min(accuracies) - 0.05, max(accuracies) + 0.05)
+    plt.title('Model Accuracy Comparison')
+    plt.ylabel('Accuracy')
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    # Add accuracy values on top of bars
+    for i, acc in enumerate(accuracies):
+        plt.text(i, acc + 0.01, f'{acc:.4f}', ha='center', va='bottom')
+    
+    plt.tight_layout()
+    plt.show()
 
 # Example usage
 if __name__ == "__main__":
@@ -338,6 +506,8 @@ if __name__ == "__main__":
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Using device: {device}")
     
+    # Train the CNN first
+    print("Training CNN model...")
     trained_model = train_model(
         model, 
         dataloaders, 
@@ -347,23 +517,65 @@ if __name__ == "__main__":
         num_epochs=15,
         device=device
     )
-
+    
+    # Save the CNN model
+    torch.save(trained_model.state_dict(), './model/diabetic_retinopathy_cnn_model.pth')
+    print("CNN model saved to diabetic_retinopathy_cnn_model.pth")
+    
+    # Train AdaBoost on top of CNN
+    print("\nTraining AdaBoost model on CNN features...")
+    adaboost_model = train_adaboost(
+        trained_model,
+        dataloaders,
+        device=device,
+        n_estimators=50
+    )
+    
+    # Save the AdaBoost model
+    import pickle
+    with open('./model/diabetic_retinopathy_adaboost_model.pkl', 'wb') as f:
+        pickle.dump(adaboost_model, f)
+    print("AdaBoost model saved to diabetic_retinopathy_adaboost_model.pkl")
+    
+    # Load test data
     test_loader = create_test_loader()
-    # Evaluate on test set
-    test_accuracy = evaluate_model(trained_model, test_loader, device=device)
     
-    # Save the model
-    torch.save(trained_model.state_dict(), './model/diabetic_retinopathy_model.pth')
-    print("Model saved to diabetic_retinopathy_model.pth")
+    # Compare CNN and AdaBoost models
+    compare_models(trained_model, adaboost_model, test_loader, device)
     
-    # Example of how to load the model and make a prediction
-    # model = DiabeticRetinopathyCNN(num_classes=5)
-    # model.load_state_dict(torch.load('diabetic_retinopathy_model.pth'))
-    # transform = transforms.Compose([
-    #     transforms.Resize((224, 224)),
-    #     transforms.ToTensor(),
-    #     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    # ])
-    # predicted_class, probabilities = predict_single_image(model, 'path/to/image.jpg', transform)
-    # print(f"Predicted class: {class_names[predicted_class]}")
-    # print(f"Probabilities: {probabilities}")
+    # Example of how to load the models and make a prediction
+    """
+    # Load CNN model
+    model = DiabeticRetinopathyCNN(num_classes=5)
+    model.load_state_dict(torch.load('./model/diabetic_retinopathy_cnn_model.pth'))
+    
+    # Load AdaBoost model
+    with open('./model/diabetic_retinopathy_adaboost_model.pkl', 'rb') as f:
+        adaboost_model = pickle.load(f)
+    
+    # Transform for input images
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    ])
+    
+    # Make prediction with AdaBoost
+    class_names = {
+        0: "No DR",
+        1: "Mild DR",
+        2: "Moderate DR",
+        3: "Severe DR",
+        4: "Proliferative DR"
+    }
+    
+    predicted_class, probabilities = predict_single_image(
+        model, 
+        'path/to/image.jpg', 
+        transform, 
+        adaboost=adaboost_model
+    )
+    
+    print(f"Predicted class: {class_names[predicted_class]}")
+    print(f"Probabilities: {probabilities}")
+    """

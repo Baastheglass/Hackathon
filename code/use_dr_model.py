@@ -217,7 +217,8 @@ if __name__ == "__main__":
     
     # Example 2: Loading a pretrained model and making predictions
     # First, load a trained model
-    model = load_pretrained_model('diabetic_retinopathy_model.pth')
+    print(os.getcwd())
+    model = load_pretrained_model('./model/diabetic_retinopathy_cnn_model.pth')
     
     # Make prediction on a single image
     predict_image(model, './content/Diabetic_Balanced_Data/test/4/IDRiD_040.jpg')
