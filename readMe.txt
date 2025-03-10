@@ -1,5 +1,7 @@
 # 🩺 Diabetic Retinopathy Detection  
 
+Model: https://drive.google.com/file/d/1TDeVDD5sUQ1sJlSt2tDmTmE12fxANQOG/view?usp=sharing
+
 This project is an AI-powered application designed to classify **retinal fundus images**
 into different **Diabetic Retinopathy (DR) severity levels**. The model processes the uploaded
 images and predicts the severity of DR using deep learning. The frontend is built using
@@ -17,26 +19,13 @@ Developer2 - Hafsa Wajid Butt
 ✅ AI model predicts the DR severity level  
 ✅ Results displayed as a **percentage bar** and **pie chart**  
 
-things to Install before RUN
-
-pip install Streamlit
-pip install tensorflow
-pip install numpy
-pip install matplotlib
-pip install pandas
-pip install torch
-pip install torchvision
-pip install scikit-learn
-pip install opencv-python
-pip install Pillow
----
-
 ## 📈 Usage Instructions
 1. Clone the repository to your local machine.
 2. Install the required packages using pip.
-3. Run the application using `streamlit run ./code/frontend.py` in your terminal.
-4. Upload a retinal fundus image to the application.
-5. The AI model will process the image and display the predicted DR severity level as a 
+3. Download the model from the provided link and put it into the model folder.
+4. Run the application using `streamlit run ./code/frontend.py` in your terminal.
+5. Upload a retinal fundus image to the application.
+6. The AI model will process the image and display the predicted DR severity level as a 
 percentage bar and a pie chart.
 ---
 
