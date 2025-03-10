@@ -72,7 +72,7 @@ def train_new_model(train_loader, val_loader, test_loader):
 
 # 2. OPTION 2: LOAD A PRE-TRAINED MODEL
 # --------------------------------------
-def load_pretrained_model(model_path='diabetic_retinopathy_model.pth'):
+def load_pretrained_model(model_path='diabetic_retinopathy_cnn_model.pth'):
     """
     Load a previously trained model
     
