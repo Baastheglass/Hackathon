@@ -3,7 +3,7 @@ import numpy as np
 import time
 from PIL import Image
 import matplotlib.pyplot as plt
-
+from use_dr_model import predict_image, load_pretrained_model
 # Set page configuration
 st.set_page_config(page_title="Diabetic Retinopathy Detection", page_icon="🩺", layout="centered")
 
@@ -41,7 +41,10 @@ if uploaded_file is not None:
     
     # Processing indicator
     with st.spinner("Analyzing image..."):
-        time.sleep(3)  # Simulate model processing time
+        model = load_pretrained_model("./model/diabetic_retinopathy_cnn_model.pth")
+        predicted_class, predicted_percentages = predict_image(model, image)
+        print("Predicted Class: " + predicted_class)
+        print("Predicted Percentages: " + predicted_percentages)
         severity_percentage = np.random.randint(0, 101)  # Simulating a model output
     
     # Display result

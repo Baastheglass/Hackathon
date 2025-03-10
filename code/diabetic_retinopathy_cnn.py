@@ -10,6 +10,12 @@ from sklearn.metrics import confusion_matrix, classification_report, accuracy_sc
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn.base import BaseEstimator
 from preprocessing import create_val_loader, create_test_loader, create_train_loader
+from PIL import Image
+import cv2
+import numpy as np
+import joblib
+from torchvision import transforms
+    
 
 class DiabeticRetinopathyCNN(nn.Module):
     def __init__(self, num_classes=5):
@@ -621,10 +627,6 @@ def predict_single_image(model, image_path, transform, device='cuda', adaboost=N
         predicted_class: Predicted class index
         probabilities: Class probabilities
     """
-    from PIL import Image
-    import cv2
-    import numpy as np
-    
     device = torch.device(device if torch.cuda.is_available() and device=='cuda' else "cpu")
     model = model.to(device)
     model.eval()
@@ -727,7 +729,7 @@ if __name__ == "__main__":
         criterion=criterion,
         optimizer=optimizer,
         scheduler=scheduler,
-        num_epochs=25,
+        num_epochs=5,
         device='cuda'
     )
     
@@ -738,6 +740,12 @@ if __name__ == "__main__":
         device='cuda',
         n_estimators=100
     )
+    
+    torch.save(trained_model.state_dict(), "./model/trained_cnn_model.pth")
+    print("CNN model saved to ./model/trained_cnn_model.pth")
+    
+    joblib.dump(adaboost_model, "./model/adaboost_model.pkl")
+    print("AdaBoost model saved to ./model/adaboost_model.pkl")
     
     # Evaluate the models on the test set
     print("Evaluating CNN model:")
@@ -750,8 +758,7 @@ if __name__ == "__main__":
     compare_models(trained_model, adaboost_model, test_loader, device='cuda')
     
     # Example of making a prediction on a single image
-    from torchvision import transforms
-    
+
     # Define the transform for the input image
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -760,7 +767,7 @@ if __name__ == "__main__":
     ])
     
     # Predict on a single image
-    image_path = "path_to_your_image.jpg"
+    image_path = "./content/Diabetic_Balanced_Data/test/0/23_right.jpeg"
     predicted_class, probabilities = predict_single_image(
         model=trained_model,
         image_path=image_path,
