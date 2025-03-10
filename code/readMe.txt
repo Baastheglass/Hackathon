@@ -38,9 +38,9 @@ A final output layer with 5 neurons and softmax activation for classification.
 
 ---
 ## 📊 Model Training
-The model is trained on the **DRISHTI-GS** dataset, which contains 88
+The model is trained on the **DRISHTI-GS** dataset, which contains 5000
 images of retinal fundus. The dataset is split into training and testing sets with a ratio of
-80:20. The model is trained using the **Adam optimizer** with a learning rate of
+70:30. The model is trained using the **ADABoost** with a learning rate of
 0.001 and a batch size of 32. The model is trained for 5 epochs with
-early stopping. The model achieves a **test accuracy of 0.95** and a **test
-loss of 0.05**.
+early stopping. The model achieves a **test accuracy of 0.49** We could get more accuracy but 
+due to time constraint we only get this acuracy 
