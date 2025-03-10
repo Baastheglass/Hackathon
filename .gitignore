@@ -3,4 +3,6 @@ content/
 test.py
 after_resizing/
 diabetic_retinopathy_cnn_model.pth
+/
+__pycache__/
 
