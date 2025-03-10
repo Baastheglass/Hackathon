@@ -6,12 +6,30 @@ images and predicts the severity of DR using deep learning. The frontend is buil
 **Streamlit** for an interactive and user-friendly experience.
 
 ---
+👨‍💻 Authors
+Team Name - Baasil&Hafsa
+Developer1 - Muhammad Baasil
+Developer2 - Hafsa Wajid Butt
 
+---
 ## 🚀 Features  
 ✅ Upload retinal images for analysis  
 ✅ AI model predicts the DR severity level  
 ✅ Results displayed as a **percentage bar** and **pie chart**  
 
+things to Install before RUN
+
+pip install Streamlit
+pip install tensorflow
+pip install numpy
+pip install matplotlib
+pip install pandas
+pip install torch
+pip install torchvision
+pip install scikit-learn
+pip install opencv-python
+pip install Pillow
+---
 
 ## 📈 Usage Instructions
 1. Clone the repository to your local machine.
@@ -24,11 +42,13 @@ percentage bar and a pie chart.
 
 ## 📊 Model Architecture
 The model is a **Convolutional Neural Network (CNN)** with the following architecture:
-- **Conv2D** layer with 32 filters, kernel size 3, and ReLU
-- **MaxPooling2D** layer with pool size 2
-- **Flatten** layer
-- **Dense** layer with 128 units and ReLU
-- **Dense** layer with 1 unit and sigmoid activation
+
+4 convolutional layers (32, 64, 128, 128 filters) with ReLU activation.
+4 max pooling layers (2x2).
+A fully connected dense layer with 512 neurons and ReLU activation.
+A dropout layer (0.5) to prevent overfitting.
+A final output layer with 5 neurons and softmax activation for classification.
+
 ---
 ## 📊 Model Training
 The model is trained on the **DRISHTI-GS** dataset, which contains 88
