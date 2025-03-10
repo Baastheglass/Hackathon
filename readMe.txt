@@ -12,19 +12,6 @@ images and predicts the severity of DR using deep learning. The frontend is buil
 ✅ AI model predicts the DR severity level  
 ✅ Results displayed as a **percentage bar** and **pie chart**  
 
-things to Install before RUN
-
-pip install Streamlit
-pip install tensorflow
-pip install numpy
-pip install matplotlib
-pip install pandas
-pip install torch
-pip install torchvision
-pip install scikit-learn
-pip install opencv-python
-pip install Pillow
----
 
 ## 📈 Usage Instructions
 1. Clone the repository to your local machine.
@@ -34,7 +21,6 @@ pip install Pillow
 5. The AI model will process the image and display the predicted DR severity level as a 
 percentage bar and a pie chart.
 ---
-
 
 ## 📊 Model Architecture
 The model is a **Convolutional Neural Network (CNN)** with the following architecture:

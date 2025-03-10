@@ -88,7 +88,7 @@ def load_pretrained_model(model_path='diabetic_retinopathy_cnn_model.pth'):
     # Load weights
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.is_available():
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path), strict=False)
     else:
         # If trained on GPU but loading on CPU
         model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
