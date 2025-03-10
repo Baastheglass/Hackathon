@@ -36,16 +36,24 @@ st.markdown("<h1 style='color: #C599B6; text-align: center;'>Diabetic Retinopath
 uploaded_file = st.file_uploader("Upload a retinal image", type=["jpg", "png", "jpeg"])
 
 if uploaded_file is not None:
+    temp_file_path = "temp_image.jpg"
+    # Save the uploaded file to a temporary location
+    with open(temp_file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    # Now you can use the file path
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image", use_column_width=True)
     
     # Processing indicator
     with st.spinner("Analyzing image..."):
         model = load_pretrained_model("./model/diabetic_retinopathy_cnn_model.pth")
-        predicted_class, predicted_percentages = predict_image(model, image)
-        print("Predicted Class: " + predicted_class)
-        print("Predicted Percentages: " + predicted_percentages)
-        severity_percentage = np.random.randint(0, 101)  # Simulating a model output
+        print(image)
+        predicted_class, predicted_percentages = predict_image(model, temp_file_path)
+        print("Predicted Class: ", predicted_class)
+        print("Predicted Percentages: ", predicted_percentages)
+        average = np.mean(predicted_percentages)
+        severity_percentage = average 
     
     # Display result
     st.markdown(f"<h2 style='color: #D8A0A8;'>Severity Level: {severity_percentage}%</h2>", unsafe_allow_html=True)
